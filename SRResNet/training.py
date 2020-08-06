@@ -2,13 +2,16 @@ import argparse
 import os
 import numpy as np
 import math
+import random
 import itertools
 import sys
 
 import torchvision.transforms as transforms
 from torchvision.utils import save_image, make_grid
 from torch.utils.data import DataLoader
+from torch.utils.data import random_split
 import torchvision.transforms as transforms
+from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from torch.autograd import Variable
@@ -20,12 +23,15 @@ import torch.nn as nn
 
 import torch
 
+project_path = os.path.dirname(os.path.dirname(__file__))
+project_path = os.path.abspath(project_path)
+
 IMG_SIZE_LR = 64    #velicine slika
 IMG_SIZE_HR = 256
 BATCH_SIZE = 16
 NUM_WORKERS = 8
+MAX_SUMMARY_IMAGES = 4
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(DEVICE)
 
 ada1 = 0.9          #koeficijenti za adam optimizer
 ada2 = 0.999
@@ -33,18 +39,19 @@ ada2 = 0.999
 LR = 0.0002 #learning rate
 
 
-EPOCH = 100000
+EPOCH = 3
 
 def train():
+    summary_writer = SummaryWriter()
     cuda = torch.cuda.is_available()
-
+    print(os.path.join(project_path, "Checkpoints"))
     hr_shape = (IMG_SIZE_HR, IMG_SIZE_HR)
 
 
     generator = ResNetG()
     vgg = VGG()
-    generator.to(DEVICE)
-    vgg.to(DEVICE)
+    #generator.to(DEVICE)
+    #vgg.to(DEVICE)
 
     vgg.eval()
 
@@ -65,12 +72,27 @@ def train():
     Tensor = torch.cuda.FloatTensor if cuda else torch.Tensor
 
     dataset = CelebaHQDataSet(IMG_SIZE_LR, IMG_SIZE_HR)
-    dataloader = DataLoader(dataset,
+    train_set, valid_set, test_set = random_split(dataset, [28000, 1000, 1000])
+    train_dataloader = DataLoader(train_set,
                             batch_size=BATCH_SIZE,
                             shuffle=True,
                             pin_memory=True,
                             num_workers=NUM_WORKERS,
                             drop_last=True)
+    valid_dataloader = DataLoader(valid_set,
+                            batch_size=BATCH_SIZE,
+                            shuffle=True,
+                            pin_memory=True,
+                            num_workers=NUM_WORKERS,
+                            drop_last=True)
+    test_dataloader = DataLoader(test_set,
+                            batch_size=BATCH_SIZE,
+                            shuffle=True,
+                            pin_memory=True,
+                            num_workers=NUM_WORKERS,
+                            drop_last=True)
+
+
 
 
 
@@ -83,7 +105,10 @@ def train():
     total_iterations = len(dataset) // BATCH_SIZE
 
     for epoch in range(EPOCH):
-        for i, img_batch in tqdm(enumerate(dataloader), total=total_iterations, desc=f"Epoch: {epoch}", unit="batches"):
+        generator.train()
+        for i, img_batch in tqdm(enumerate(train_dataloader), total=total_iterations, desc=f"Epoch: {epoch}", unit="batches"):
+            
+            global_step = epoch * total_iterations + i
 
             imgs_lr = img_batch[0].to(DEVICE)
             imgs_hr = img_batch[1].to(DEVICE)   #UCITAJ HIGH I LOW RESOLUTION IMAGES< TREBA DA BUDU NORMALIZOVANE NA INTERVALU 0 1
@@ -108,7 +133,60 @@ def train():
             loss.backward()
             optimizer.step()
 
-            #OVDE Treba neki logging staviti ima tqdm ili mozemo onaj tensor info ili tako nesto sto loguje na loalhost
+            if global_step % 100 == 0:
+                summary_writer.add_scalar("Generator loss", loss_content, global_step)
+                summary_writer.add_images("Generated images", gen_hr[:MAX_SUMMARY_IMAGES], global_step)
 
+                torch.save({'epoch': epoch,
+                            'model_state_dict': generator.state_dict(),
+                            'optimizer_state_dict': optimizer.state_dict(),
+                            'loss': loss
+                }, os.path.join(project_path, "Checkpoints"))
+        generator.eval()
+        with torch.no_grad():
+            valid_loss_sum = 0
+            valid_num = 0
+            valid_images = []
+            rand_num = random.randint(0,10)
+            for i, valid_img_batch in enumerate(valid_dataloader):
+                valid_num = i
+                valid_imgs_lr = valid_img_batch[0].to(DEVICE)
+                valid_imgs_hr = valid_img_batch[1].to(DEVICE) 
+                valid_gen_hr = generator(valid_imgs_lr)
+                valid_gen_features = vgg(valid_gen_hr)
+                valid_real_features = vgg(valid_imgs_hr)
+                valid_loss = MeanAbsErr(valid_gen_features, valid_real_features.detach())
+                valid_loss_sum += valid_loss
+                if i == rand_num:
+                    valid_images = valid_gen_hr
+            valid_loss_mean = valid_loss_sum / ((valid_num + 1))
+            summary_writer.add_scalar("Generator validation loss", valid_loss_mean, global_step)
+            summary_writer.add_images("Generated validation images", valid_images[:MAX_SUMMARY_IMAGES], global_step)
+
+
+        #OVDE Treba neki logging staviti ima tqdm ili mozemo onaj tensor info ili tako nesto sto loguje na loalhost
+    generator.eval()
+    with torch.no_grad():
+        test_loss_sum = 0     
+        test_num = 0
+        test_images = []
+        rand_num = random.randint(0,10)
+        for i, test_img_batch in enumerate(test_dataloader):
+            test_num = i
+            test_imgs_lr = test_img_batch[0].to(DEVICE)
+            test_imgs_hr = test_img_batch[1].to(DEVICE) 
+            test_gen_hr = generator(test_imgs_lr)
+            test_gen_features = vgg(test_gen_hr)
+            test_real_features = vgg(test_imgs_hr)
+            test_loss = MeanAbsErr(test_gen_features, test_real_features.detach())
+            test_loss_sum += valid_loss
+            if i == rand_num:
+                test_images = test_gen_hr
+        test_loss_mean = test_loss_sum / ((test_num + 1))
+        summary_writer.add_scalar("Generator test loss", test_loss_mean, global_step)
+        summary_writer.add_images("Generated test images", test_images[:MAX_SUMMARY_IMAGES], global_step)
+
+
+    summary_writer.flush()
 if __name__ == "__main__":
     train()

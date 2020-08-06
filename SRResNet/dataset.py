@@ -10,9 +10,9 @@ class CelebaHQDataSet(Dataset):
     def __init__(self, img_size_lr, img_size_hr, total_images=None):
         self.img_size_lr = img_size_lr
         self.img_size_hr = img_size_hr
-        project_path = os.path.dirname(os.path.dirname(__file__)) # should be PSIML/workshops/gan
+        project_path = os.path.dirname(os.path.dirname(__file__)) # should be PSIML6/
         project_path = os.path.abspath(project_path)
-        self.data_root = os.path.join(project_path, "Projekat",  "data", "data256x256")
+        self.data_root = os.path.join(project_path, "SRResNet",  "data", "data256x256")
         self.image_paths = glob.glob(os.path.join(self.data_root, "*.jpg"))
         self.image_paths = self.image_paths[:total_images]
         self.transforms_lr = transforms.Compose(
