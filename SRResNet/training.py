@@ -137,11 +137,8 @@ def train():
                 summary_writer.add_scalar("Generator loss", loss_content, global_step)
                 summary_writer.add_images("Generated images", gen_hr[:MAX_SUMMARY_IMAGES], global_step)
 
-                torch.save({'epoch': epoch,
-                            'model_state_dict': generator.state_dict(),
-                            'optimizer_state_dict': optimizer.state_dict(),
-                            'loss': loss
-                }, os.path.join(project_path, "Checkpoints"))
+    
+        torch.save(generator.state_dict(), f"resnet_model{epoch}.pt")
         generator.eval()
         with torch.no_grad():
             valid_loss_sum = 0
