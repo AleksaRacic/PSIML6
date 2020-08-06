@@ -25,6 +25,7 @@ IMG_SIZE_HR = 256
 BATCH_SIZE = 16
 NUM_WORKERS = 8
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(DEVICE)
 
 ada1 = 0.9          #koeficijenti za adam optimizer
 ada2 = 0.999
@@ -42,7 +43,8 @@ def train():
 
     generator = ResNetG()
     vgg = VGG()
-
+    generator.to(DEVICE)
+    vgg.to(DEVICE)
 
     vgg.eval()
 
