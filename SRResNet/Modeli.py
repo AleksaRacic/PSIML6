@@ -71,3 +71,5 @@ class ResNetG(nn.Module):
         out = self.upsampling(out)
         out = self.conv3(out)
         return out
+
+
