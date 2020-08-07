@@ -39,7 +39,7 @@ ada2 = 0.999
 LR = 0.0002 #learning rate
 
 
-EPOCH = 3
+EPOCH = 12
 
 def train():
     summary_writer = SummaryWriter()
@@ -72,7 +72,7 @@ def train():
     Tensor = torch.cuda.FloatTensor if cuda else torch.Tensor
 
     dataset = CelebaHQDataSet(IMG_SIZE_LR, IMG_SIZE_HR)
-    train_set, valid_set, test_set = random_split(dataset, [28000, 1000, 1000])
+    train_set, valid_set = random_split(dataset, [28900, 100])
     train_dataloader = DataLoader(train_set,
                             batch_size=BATCH_SIZE,
                             shuffle=True,
@@ -85,15 +85,6 @@ def train():
                             pin_memory=True,
                             num_workers=NUM_WORKERS,
                             drop_last=True)
-    test_dataloader = DataLoader(test_set,
-                            batch_size=BATCH_SIZE,
-                            shuffle=True,
-                            pin_memory=True,
-                            num_workers=NUM_WORKERS,
-                            drop_last=True)
-
-
-
 
 
     #for i, real_img_batch in tqdm(enumerate(data_loader), total=total_iterations, desc=f"Epoch: {epoch}", unit="batches"):
@@ -102,7 +93,7 @@ def train():
     #  Training
     # ----------
 
-    total_iterations = len(dataset) // BATCH_SIZE
+    total_iterations = 28900 // BATCH_SIZE
 
     for epoch in range(EPOCH):
         generator.train()
@@ -136,15 +127,21 @@ def train():
             if global_step % 100 == 0:
                 summary_writer.add_scalar("Generator loss", loss_content, global_step)
                 summary_writer.add_images("Generated images", gen_hr[:MAX_SUMMARY_IMAGES], global_step)
-
+            
+                
     
-        torch.save(generator.state_dict(), f"resnet_model{epoch}.pt")
+        torch.save({
+            'epoch': epoch,
+            'model_state_dict': generator.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'loss': loss
+        }, f"resnet_model_try{epoch}.pt")
         generator.eval()
         with torch.no_grad():
             valid_loss_sum = 0
             valid_num = 0
             valid_images = []
-            rand_num = random.randint(0,10)
+            rand_num = random.randint(0,5)
             for i, valid_img_batch in enumerate(valid_dataloader):
                 valid_num = i
                 valid_imgs_lr = valid_img_batch[0].to(DEVICE)
@@ -162,28 +159,7 @@ def train():
 
 
         #OVDE Treba neki logging staviti ima tqdm ili mozemo onaj tensor info ili tako nesto sto loguje na loalhost
-    generator.eval()
-    with torch.no_grad():
-        test_loss_sum = 0     
-        test_num = 0
-        test_images = []
-        rand_num = random.randint(0,10)
-        for i, test_img_batch in enumerate(test_dataloader):
-            test_num = i
-            test_imgs_lr = test_img_batch[0].to(DEVICE)
-            test_imgs_hr = test_img_batch[1].to(DEVICE) 
-            test_gen_hr = generator(test_imgs_lr)
-            test_gen_features = vgg(test_gen_hr)
-            test_real_features = vgg(test_imgs_hr)
-            test_loss = MeanAbsErr(test_gen_features, test_real_features.detach())
-            test_loss_sum += valid_loss
-            if i == rand_num:
-                test_images = test_gen_hr
-        test_loss_mean = test_loss_sum / ((test_num + 1))
-        summary_writer.add_scalar("Generator test loss", test_loss_mean, global_step)
-        summary_writer.add_images("Generated test images", test_images[:MAX_SUMMARY_IMAGES], global_step)
-
-
+    
     summary_writer.flush()
 if __name__ == "__main__":
     train()
