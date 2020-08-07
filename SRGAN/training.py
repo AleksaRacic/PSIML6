@@ -146,7 +146,15 @@ def train():
             'model_state_dict': generator.state_dict(),
             'optimizer_state_dict': optimizer.state_dict(),
             'loss': loss
-        }, f"resnet_model_try{epoch}.pt")
+        }, f"SRGAN_generator_model_try{epoch}.pt")
+
+        torch.save({
+            'epoch': epoch,
+            'model_state_dict': discriminator.state_dict(),
+            'optimizer_state_dict': optimizerD.state_dict(),
+            'loss': loss_D
+        }, f"SRGAN_discriminator_model_try{epoch}.pt")
+
         generator.eval()
         with torch.no_grad():
             valid_loss_sum = 0
@@ -167,6 +175,8 @@ def train():
             valid_loss_mean = valid_loss_sum / ((valid_num + 1))
             summary_writer.add_scalar("Generator validation loss", valid_loss_mean, global_step)
             summary_writer.add_images("Generated validation images", valid_images[:MAX_SUMMARY_IMAGES], global_step)
+    
+    summary_writer.flush()
 
 if __name__ == "__main__":
     train()
