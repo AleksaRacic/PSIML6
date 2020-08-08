@@ -39,11 +39,13 @@ ada2 = 0.999
 
 LR = 0.0002 #learning rate
 
-START_EPOCH = 
+START_EPOCH = 10
 EPOCH = 12
 
 generator = ResNetG()
-generator.load_state_dict(torch.load(#put))
+#generator.load_state_dict(torch.load(r"C:\Users\psimluser\Desktop\PSIML6\SRResNet\resnet_model_try11.pt"))
+checkpoint = torch.load("resnet_model_2try12.pt")
+generator.load_state_dict(checkpoint['model_state_dict'])
 generator.eval()
 
 
@@ -53,7 +55,7 @@ def compute_total_variation_loss(img, weight):
         return weight * (tv_h + tv_w)
 
 def train():
-    summary_writer = SummaryWriter()
+    summary_writer = SummaryWriter(log_dir = r"C:\Users\psimluser\Desktop\PSIML6\SRResNet\continue" )
     cuda = torch.cuda.is_available()
     print(os.path.join(project_path, "Checkpoints"))
     hr_shape = (IMG_SIZE_HR, IMG_SIZE_HR)
@@ -135,9 +137,12 @@ def train():
 
             loss.backward()
             optimizer.step()
-
+           
             if global_step % 100 == 0:
-                summary_writer.add_scalar("Generator loss", loss_content, global_step)
+                summary_writer.add_scalar("Loss content", loss_content, global_step)
+                summary_writer.add_scalar("Var loss", var_loss, global_step)
+                summary_writer.add_scalar("Loss", loss, global_step)
+
                 summary_writer.add_images("Generated images", gen_hr[:MAX_SUMMARY_IMAGES], global_step)
             
                 

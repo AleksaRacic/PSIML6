@@ -89,7 +89,7 @@ def train():
     #  Training
     # ----------
 
-     total_iterations = 28900 // BATCH_SIZE
+    total_iterations = 28900 // BATCH_SIZE
 
     iters = 0
     for epoch in range(EPOCH):

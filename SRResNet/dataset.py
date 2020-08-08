@@ -12,7 +12,7 @@ class CelebaHQDataSet(Dataset):
         self.img_size_hr = img_size_hr
         project_path = os.path.dirname(os.path.dirname(__file__)) # should be PSIML6/
         project_path = os.path.abspath(project_path)
-        self.data_root = os.path.join(project_path, "SRResNet",  "data", "data256x256")
+        self.data_root = os.path.join(project_path, "SRResNet",  "data", "data256x256") #privremeno promenjeno!!!!!!
         self.image_paths = glob.glob(os.path.join(self.data_root, "*.jpg"))
         self.image_paths = self.image_paths[:total_images]
         self.transforms_lr = transforms.Compose(

@@ -34,7 +34,7 @@ ada1 = 0.9          #koeficijenti za adam optimizer
 ada2 = 0.999
 
 LR = 0.0002 #learning rate
-EPOCH = 5
+EPOCH = 22
 
 def train():
     summary_writer = SummaryWriter()
@@ -58,10 +58,10 @@ def train():
     Tensor = torch.cuda.FloatTensor if cuda else torch.Tensor
 
 
-    checkpoint = torch.load("resnet_model_try0.pt")
+    checkpoint = torch.load("resnet_model_2try14.pt")
     generator.load_state_dict(checkpoint['model_state_dict'])
-    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-    epoch = checkpoint['epoch']
+    #optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    epoch = checkpoint['epoch'] + 1
     loss = checkpoint['loss']
 
     dataset = CelebaHQDataSet(IMG_SIZE_LR, IMG_SIZE_HR)
@@ -82,14 +82,14 @@ def train():
     total_iterations = 28900 // BATCH_SIZE
     print("Nastavak treninga")
 
-    for epoch in range(EPOCH):
+    for epoch in range(epoch, EPOCH):
         generator.train()
         for i, img_batch in tqdm(enumerate(train_dataloader), total=total_iterations, desc=f"Epoch: {epoch}", unit="batches"):
             
             global_step = epoch * total_iterations + i
 
-            imgs_lr = img_batch[0].to(DEVICE)
-            imgs_hr = img_batch[1].to(DEVICE)   #UCITAJ HIGH I LOW RESOLUTION IMAGES< TREBA DA BUDU NORMALIZOVANE NA INTERVALU 0 1
+            imgs_lr = img_batch[0].to(DEVICE) #izmena da bude u intervalu -1 do 1
+            imgs_hr = img_batch[1].to(DEVICE) #UCITAJ HIGH I LOW RESOLUTION IMAGES< TREBA DA BUDU NORMALIZOVANE NA INTERVALU 0 1
 
 
             # ------------------
@@ -99,12 +99,20 @@ def train():
             optimizer.zero_grad()
 
             gen_hr = generator(imgs_lr)
-
+            
+            #print("===========================================")
+            #print(imgs_hr.shape)
+            #print("-------------------------------------------")
+            #print(gen_hr.shape)
 
             #loss funkcija sadrzaja
-            gen_features = vgg(gen_hr)
-            real_features = vgg(imgs_hr)
-            loss_content = MeanAbsErr(gen_features, real_features.detach())
+            
+            if i % 8 == 0:
+                gen_features = vgg(gen_hr)
+                real_features = vgg(imgs_hr)
+                loss_content = MeanAbsErr(gen_features, real_features.detach())
+            else:
+                loss_content = MeanAbsErr(gen_hr, imgs_hr)
 
             loss = loss_content
 
@@ -114,22 +122,20 @@ def train():
             if global_step % 100 == 0:
                 summary_writer.add_scalar("Generator loss", loss_content, global_step)
                 summary_writer.add_images("Generated images", gen_hr[:MAX_SUMMARY_IMAGES], global_step)
-            if global_step % 300 == 0:
-                torch.save({
-                    'epoch': epoch,
-                    'model_state_dict': generator.state_dict(),
-                    'optimizer_state_dict': optimizer.state_dict(),
-                    'loss': loss
-                }, f"resnet_model_try{epoch}.pt")
-                
-    
+            
         
+        torch.save({
+            'epoch': epoch,
+            'model_state_dict': generator.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'loss': loss
+        }, f"resnet_model_2try{epoch}.pt")
         generator.eval()
         with torch.no_grad():
             valid_loss_sum = 0
             valid_num = 0
             valid_images = []
-            rand_num = random.randint(0,10)
+            rand_num = random.randint(0,5)
             for i, valid_img_batch in enumerate(valid_dataloader):
                 valid_num = i
                 valid_imgs_lr = valid_img_batch[0].to(DEVICE)
