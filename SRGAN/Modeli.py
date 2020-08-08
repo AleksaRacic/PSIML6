@@ -99,8 +99,12 @@ class Discriminator(nn.Module):
             layers.extend(discriminator_block(in_filters, out_filters, first_block=(i == 0)))
             in_filters = out_filters
 
-        layers.append(nn.Conv2d(out_filters, 1, kernel_size=3, stride=1, padding=1))
-
+      
+        out_filters = 2*in_filters
+        layers.apend(nn.Linear(in_filters, out_filters))
+        layers.append(nn.LeakyReLU(0.2, inplace=True))
+        layers.apend(nn.Linear(out_filters, 1))
+        layers.append(nn.Sigmoid())
         self.model = nn.Sequential(*layers)
 
     def forward(self, img):
