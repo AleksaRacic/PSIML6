@@ -34,7 +34,7 @@ ada1 = 0.9          #koeficijenti za adam optimizer
 ada2 = 0.999
 
 LR = 0.0002 #learning rate
-EPOCH = 22
+EPOCH = 23
 
 def train():
     summary_writer = SummaryWriter()
@@ -52,13 +52,14 @@ def train():
         generator = generator.cuda()
         vgg = vgg.cuda()
         MeanAbsErr = MeanAbsErr.cuda()
+        MeanSqErr = torch.nn.MSELoss().cuda()
 
 
     optimizer = torch.optim.Adam(generator.parameters(), LR, betas=(ada1, ada2))
     Tensor = torch.cuda.FloatTensor if cuda else torch.Tensor
 
 
-    checkpoint = torch.load("resnet_model_2try14.pt")
+    checkpoint = torch.load("resnet_model_2try21.pt")
     generator.load_state_dict(checkpoint['model_state_dict'])
     #optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
     epoch = checkpoint['epoch'] + 1
@@ -112,7 +113,7 @@ def train():
                 real_features = vgg(imgs_hr)
                 loss_content = MeanAbsErr(gen_features, real_features.detach())
             else:
-                loss_content = MeanAbsErr(gen_hr, imgs_hr)
+                loss_content = MeanSqErr(gen_hr, imgs_hr) #bitna izmena
 
             loss = loss_content
 

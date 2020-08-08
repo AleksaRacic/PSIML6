@@ -12,7 +12,8 @@ class CelebaHQDataSet(Dataset):
         self.img_size_hr = img_size_hr
         project_path = os.path.dirname(os.path.dirname(__file__)) # should be PSIML/workshops/gan
         project_path = os.path.abspath(project_path)
-        self.data_root = os.path.join(project_path, "Projekat",  "data", "data256x256")
+        self.data_root = os.path.join(project_path, "SRGAN",  "data", "data256x256")
+        print(self.data_root)
         self.image_paths = glob.glob(os.path.join(self.data_root, "*.jpg"))
         self.image_paths = self.image_paths[:total_images]
         self.transforms_lr = transforms.Compose(

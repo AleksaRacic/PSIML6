@@ -44,7 +44,7 @@ EPOCH = 2
 
 generator = ResNetG()
 #generator.load_state_dict(torch.load(r"C:\Users\psimluser\Desktop\PSIML6\SRResNet\resnet_model_try11.pt"))
-checkpoint = torch.load("resnet_model_2try21.pt")
+checkpoint = torch.load("resnet_model_2try15.pt")
 generator.load_state_dict(checkpoint['model_state_dict'])
 generator.eval()
 
@@ -52,7 +52,7 @@ generator.eval()
 
 
 def train():
-    summary_writer = SummaryWriter(log_dir = r"C:\Users\psimluser\Desktop\PSIML6\SRResNet\continue\Test3" )
+    summary_writer = SummaryWriter(log_dir = r"C:\Users\psimluser\Desktop\PSIML6\SRResNet\continue\Test5" )
     cuda = torch.cuda.is_available()
     print(os.path.join(project_path, "Checkpoints"))
     hr_shape = (IMG_SIZE_HR, IMG_SIZE_HR)
@@ -135,22 +135,22 @@ def train():
             
             loss_content = MeanAbsErr(gen_features, real_features.detach())
 
-            if global_step % 10 == 0:
+            if global_step >1800:
                 
                 tv_h = MSE(gen_hr[:,:,1:,:] , gen_hr[:,:,:-1,:])
                 tv_w = MSE(gen_hr[:,:,:,1:] , gen_hr[:,:,:,:-1])
-                var_loss = 0.0001*(tv_w + tv_h)
+                var_loss = 0.000001*(tv_w + tv_h)
                 loss = loss_content + var_loss
             else:
                 loss = loss_content
            # print("loss:")
-            print(loss, var_loss, loss_content)
+            #print(loss, var_loss, loss_content)
            # print("backwards")
             loss.backward()
            # print("optimizer")
             optimizer.step()
             #print(global_step)
-            if global_step % 10 == 0:
+            if global_step % 100 == 0:
                 summary_writer.add_scalar("Loss content", loss_content, global_step)
                 summary_writer.add_scalar("Var loss", var_loss, global_step)
                 summary_writer.add_scalar("Loss", loss, global_step)

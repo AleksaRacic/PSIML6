@@ -2,13 +2,16 @@ import argparse
 import os
 import numpy as np
 import math
+import random
 import itertools
 import sys
 
 import torchvision.transforms as transforms
 from torchvision.utils import save_image, make_grid
 from torch.utils.data import DataLoader
+from torch.utils.data import random_split
 import torchvision.transforms as transforms
+from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from torch.autograd import Variable
@@ -20,26 +23,30 @@ import torch.nn as nn
 
 import torch
 
+
 IMG_SIZE_LR = 64    #velicine slika
 IMG_SIZE_HR = 256
 BATCH_SIZE = 16
 NUM_WORKERS = 8
+MAX_SUMMARY_IMAGES = 4
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 ada1 = 0.9          #koeficijenti za adam optimizer
 ada2 = 0.999
 
-LR = 0.0002 #learning rate
+LR_gen = 0.0002 #learning rate
+LR_disc = 0.0001
 
-
-EPOCH = 12
+EPOCH = 2
 
 def train():
+    summary_writer = SummaryWriter()
     cuda = torch.cuda.is_available()
 
     hr_shape = (IMG_SIZE_HR, IMG_SIZE_HR)
 
     discriminator = Discriminator(input_shape=(3, *hr_shape)) 
+    #discriminator = Discriminator() 
     generator = ResNetG()
     vgg = VGG()
 
@@ -47,7 +54,8 @@ def train():
     vgg.eval()
 
     MeanAbsErr = torch.nn.L1Loss()
-    criterion_GAN = torch.nn.NLLLoss()
+    #criterion_GAN = torch.nn.NLLLoss()
+    criterion_GAN = torch.nn.BCELoss()
 
 
     if cuda:
@@ -59,12 +67,18 @@ def train():
 
 
 
-    optimizer = torch.optim.Adam(generator.parameters(), LR, betas=(ada1, ada2))
-    optimizerD = torch.optim.Adam(discriminator.parameters(), LR, betas=(ada1, ada2))
-
-
-
+    optimizer = torch.optim.Adam(generator.parameters(), LR_gen, betas=(ada1, ada2))
+    optimizerD = torch.optim.Adam(discriminator.parameters(), LR_disc, betas=(ada1, ada2))
     Tensor = torch.cuda.FloatTensor if cuda else torch.Tensor
+
+    #checkpoint = torch.load("resnet_model_2try21.pt")
+    #generator.load_state_dict(checkpoint['model_state_dict'])
+    #optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    #epoch = checkpoint['epoch'] + 1
+    #loss = checkpoint['loss']
+
+
+    print("Setup finished")
 
     dataset = CelebaHQDataSet(IMG_SIZE_LR, IMG_SIZE_HR)
     train_set, valid_set = random_split(dataset, [28900, 100])
@@ -90,18 +104,21 @@ def train():
     # ----------
 
     total_iterations = 28900 // BATCH_SIZE
+    k = 50
+    #LOSS = 0
 
-    iters = 0
     for epoch in range(EPOCH):
-        for i, img_batch in tqdm(enumerate(dataloader), total=total_iterations, desc=f"Epoch: {epoch}", unit="batches"):
+        for i, img_batch in tqdm(enumerate(train_dataloader), total=total_iterations, desc=f"Epoch: {epoch}", unit="batches"):
 
             imgs_lr = img_batch[0].to(DEVICE)
             imgs_hr = img_batch[1].to(DEVICE)   #UCITAJ HIGH I LOW RESOLUTION IMAGES< TREBA DA BUDU NORMALIZOVANE NA INTERVALU 0 1
-
+            
             global_step = epoch * total_iterations + i
 
-            valid = Variable(Tensor(np.ones((imgs_lr.size(0), *discriminator.output_shape))), requires_grad=False)
-            fake = Variable(Tensor(np.zeros((imgs_lr.size(0), *discriminator.output_shape))), requires_grad=False)
+            #valid = Variable(Tensor(np.ones((imgs_lr.size(0), *discriminator.output_shape))), requires_grad=False)
+            #fake = Variable(Tensor(np.zeros((imgs_lr.size(0), *discriminator.output_shape))), requires_grad=False)
+            valid = torch.ones(BATCH_SIZE, 1).to(DEVICE)
+            fake = torch.zeros(BATCH_SIZE, 1).to(DEVICE)
             # ------------------
             #  Train Generators
             # ------------------
@@ -110,31 +127,48 @@ def train():
 
             gen_hr = generator(imgs_lr)
 
-            loss_GAN = criterion_GAN(discriminator(gen_hr), valid)
+            if i % k == 0:
+                #print(discriminator(gen_hr).size())
+                loss_GAN = criterion_GAN(discriminator(gen_hr), valid)
 
-            #loss funkcija sadrzaja
-            gen_features = vgg(gen_hr)
-            real_features = vgg(imgs_hr)
-            loss_content = MeanAbsErr(gen_features, real_features.detach())
+                #loss funkcija sadrzaja
+                gen_features = vgg(gen_hr)
+                real_features = vgg(imgs_hr)
+                loss_content = MeanAbsErr(gen_features, real_features.detach())
 
-            loss = (1/12.75) * loss_content + 0.003*loss_GAN #u rady pise da je skaliran izlaz iz vgg
+                loss = (1/12.75) * loss_content + 0.003*loss_GAN #u rady pise da je skaliran izlaz iz vgg
 
-            loss.backward()
-            optimizer.step()
+                loss.backward()
+                optimizer.step()
 
-            
+                k = max(1, int(0.5 * k))
+
+            #Disriminator
+
             optimizerD.zero_grad()
 
-            loss_real = criterion_GAN(discriminator(imgs_hr), valid)
-            loss_fake = criterion_GAN(discriminator(gen_hr.detach()), fake)
+            #loss_real = criterion_GAN(discriminator(imgs_hr), valid)
+            #loss_fake = criterion_GAN(discriminator(gen_hr.detach()), fake)
+
+            disc_real = discriminator(imgs_hr)
+            #print(f"Discriminator on real: {disc_real}")
+            disc_fake = discriminator(gen_hr.detach())
+            #print(f"Discriminator on fake: {disc_fake}")
+
+            loss_real = criterion_GAN(disc_real, valid)
+            loss_fake = criterion_GAN(disc_fake, fake)
+
+            #print(f"Loss real: {loss_real}")
+            #print(f"Loss fake: {loss_fake}")
                 
             loss_D = (loss_real + loss_fake) / 2
+            #LOSS= loss_D
 
             loss_D.backward()
-            optimizer_D.step()
+            optimizerD.step()
             #OVDE Treba neki logging staviti ima tqdm ili mozemo onaj tensor info ili tako nesto sto loguje na loalhost
             
-             if global_step % 100 == 0:
+            if global_step % 20 == 0:
                 summary_writer.add_scalar("Generator loss", loss, global_step)
                 summary_writer.add_scalar("Discriminator loss", loss_D, global_step)
                 summary_writer.add_images("Generated images", gen_hr[:MAX_SUMMARY_IMAGES], global_step)
@@ -142,10 +176,10 @@ def train():
                 
     
         torch.save({
-            'epoch': epoch,
-            'model_state_dict': generator.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
-            'loss': loss
+             'epoch': epoch,
+             'model_state_dict': generator.state_dict(),
+             'optimizer_state_dict': optimizer.state_dict(),
+             'loss': loss
         }, f"SRGAN_generator_model_try{epoch}.pt")
 
         torch.save({
