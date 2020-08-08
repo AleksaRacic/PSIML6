@@ -39,23 +39,20 @@ ada2 = 0.999
 
 LR = 0.0002 #learning rate
 
-START_EPOCH = 10
-EPOCH = 12
+START_EPOCH = 0
+EPOCH = 2
 
 generator = ResNetG()
 #generator.load_state_dict(torch.load(r"C:\Users\psimluser\Desktop\PSIML6\SRResNet\resnet_model_try11.pt"))
-checkpoint = torch.load("resnet_model_2try12.pt")
+checkpoint = torch.load("resnet_model_2try21.pt")
 generator.load_state_dict(checkpoint['model_state_dict'])
 generator.eval()
 
 
-def compute_total_variation_loss(img, weight):      
-        tv_h = ((img[:,:,1:,:] - img[:,:,:-1,:]).pow(2)).sum()
-        tv_w = ((img[:,:,:,1:] - img[:,:,:,:-1]).pow(2)).sum()    
-        return weight * (tv_h + tv_w)
+
 
 def train():
-    summary_writer = SummaryWriter(log_dir = r"C:\Users\psimluser\Desktop\PSIML6\SRResNet\continue" )
+    summary_writer = SummaryWriter(log_dir = r"C:\Users\psimluser\Desktop\PSIML6\SRResNet\continue\Test3" )
     cuda = torch.cuda.is_available()
     print(os.path.join(project_path, "Checkpoints"))
     hr_shape = (IMG_SIZE_HR, IMG_SIZE_HR)
@@ -69,12 +66,12 @@ def train():
     vgg.eval()
 
     MeanAbsErr = torch.nn.L1Loss()
-
+    MSE = torch.nn.MSELoss(reduction='sum')
     if cuda:
         generator = generator.cuda()
         vgg = vgg.cuda()
         MeanAbsErr = MeanAbsErr.cuda()
-
+        MSE = MSE.cuda()
 
 
 
@@ -107,7 +104,7 @@ def train():
     # ----------
 
     total_iterations = 28900 // BATCH_SIZE
-
+    var_loss = 0
     for epoch in range(START_EPOCH,EPOCH):
         generator.train()
         for i, img_batch in tqdm(enumerate(train_dataloader), total=total_iterations, desc=f"Epoch: {epoch}", unit="batches"):
@@ -123,36 +120,52 @@ def train():
             # ------------------
 
             optimizer.zero_grad()
-
+            #print("generisem sliku")
             gen_hr = generator(imgs_lr)
 
-
+           # print("generisem loss funkciju sadrzaja")
             #loss funkcija sadrzaja
+
+     
+            
+
+
             gen_features = vgg(gen_hr)
             real_features = vgg(imgs_hr)
             
             loss_content = MeanAbsErr(gen_features, real_features.detach())
-            var_loss = compute_total_variation_loss(gen_hr, 1)
-            loss = loss_content + var_loss
 
+            if global_step % 10 == 0:
+                
+                tv_h = MSE(gen_hr[:,:,1:,:] , gen_hr[:,:,:-1,:])
+                tv_w = MSE(gen_hr[:,:,:,1:] , gen_hr[:,:,:,:-1])
+                var_loss = 0.0001*(tv_w + tv_h)
+                loss = loss_content + var_loss
+            else:
+                loss = loss_content
+           # print("loss:")
+            print(loss, var_loss, loss_content)
+           # print("backwards")
             loss.backward()
+           # print("optimizer")
             optimizer.step()
-           
-            if global_step % 100 == 0:
+            #print(global_step)
+            if global_step % 10 == 0:
                 summary_writer.add_scalar("Loss content", loss_content, global_step)
                 summary_writer.add_scalar("Var loss", var_loss, global_step)
                 summary_writer.add_scalar("Loss", loss, global_step)
 
                 summary_writer.add_images("Generated images", gen_hr[:MAX_SUMMARY_IMAGES], global_step)
+                #summary_writer.flush()
             
-                
+            #print(generator.grad)
     
         torch.save({
             'epoch': epoch,
             'model_state_dict': generator.state_dict(),
             'optimizer_state_dict': optimizer.state_dict(),
             'loss': loss
-        }, f"resnet_model_try{epoch}.pt")
+        }, f"continue_resnet_model_try_totalvalidation_{epoch}.pt")
         generator.eval()
         with torch.no_grad():
             valid_loss_sum = 0
