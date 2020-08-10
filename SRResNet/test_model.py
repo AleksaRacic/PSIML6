@@ -66,6 +66,7 @@ def test():
     loss = checkpoint['loss']
 
     test_set = CelebaHQDataSet(IMG_SIZE_LR, IMG_SIZE_HR)
+    print(len(test_set))
     test_dataloader = DataLoader(test_set,
                                 batch_size=BATCH_SIZE,
                                 shuffle=True,
@@ -79,19 +80,22 @@ def test():
         test_loss_sum = 0     
         test_num = 0
         test_images = []
+        total_steps = len(test_set) // BATCH_SIZE
         rand_num = random.randint(0,10)
-        for i, test_img_batch in enumerate(test_dataloader):
+        for i, test_img_batch in tqdm(enumerate(test_dataloader), total=total_steps):
             test_num = i
             test_imgs_lr = test_img_batch[0].to(DEVICE)
             test_imgs_hr = test_img_batch[1].to(DEVICE) 
             test_gen_hr = generator(test_imgs_lr)
 
             img1 = transforms.ToPILImage()(test_gen_hr[0].cpu())  #CPU
-            img1.save(f"{i}gen.jpg")
+            img1.save(f"C:/Users/psimluser/Desktop/Rezultati/Test1/{i}gen.png")
 
             img2 = transforms.ToPILImage()(test_imgs_hr[0].cpu())  #CPU
-            img2.save(f"{i}org.jpg")
+            img2.save(f"C:/Users/psimluser/Desktop/Rezultati/Test1/{i}org_hr.png")
 
+            img3 = transforms.ToPILImage()(test_imgs_lr[0].cpu())  #CPU
+            img3.save(f"C:/Users/psimluser/Desktop/Rezultati/Test1/{i}org_lr.png")
 
             test_gen_features = vgg(test_gen_hr)
             test_real_features = vgg(test_imgs_hr)
@@ -101,10 +105,9 @@ def test():
             summary_writer.add_images("Generated test images", test_gen_hr[:MAX_SUMMARY_IMAGES])
             summary_writer.add_images("Original lr test images", test_imgs_lr[:MAX_SUMMARY_IMAGES])
             summary_writer.add_images("Original hr test images", test_imgs_hr[:MAX_SUMMARY_IMAGES])
-            if i == 0:
-                break
-            if i == rand_num:
-                test_images = test_gen_hr
+        
+            #if i == rand_num:
+            #    test_images = test_gen_hr
 
         #test_loss_mean = test_loss_sum / ((test_num + 1))
         #summary_writer.add_scalar("Generator test loss", test_loss_mean)

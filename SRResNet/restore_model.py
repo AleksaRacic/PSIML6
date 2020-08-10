@@ -34,7 +34,7 @@ ada1 = 0.9          #koeficijenti za adam optimizer
 ada2 = 0.999
 
 LR = 0.0002 #learning rate
-EPOCH = 23
+EPOCH = 27
 
 def train():
     summary_writer = SummaryWriter()
@@ -108,12 +108,9 @@ def train():
 
             #loss funkcija sadrzaja
             
-            if i % 8 == 0:
-                gen_features = vgg(gen_hr)
-                real_features = vgg(imgs_hr)
-                loss_content = MeanAbsErr(gen_features, real_features.detach())
-            else:
-                loss_content = MeanSqErr(gen_hr, imgs_hr) #bitna izmena
+            
+            
+            loss_content = MeanSqErr(gen_hr, imgs_hr) #bitna izmena
 
             loss = loss_content
 
@@ -130,7 +127,7 @@ def train():
             'model_state_dict': generator.state_dict(),
             'optimizer_state_dict': optimizer.state_dict(),
             'loss': loss
-        }, f"resnet_model_2try{epoch}.pt")
+        }, f"resnet_model_mse{epoch}.pt")
         generator.eval()
         with torch.no_grad():
             valid_loss_sum = 0
