@@ -75,7 +75,7 @@ def test():
                                 drop_last=True)
 
     print("testiram")
-    img = Image.open(r"C:\Users\psimluser\Desktop\Rezultati\Test1\vggmsegen.png")
+    #img = Image.open(r"C:\Users\psimluser\Desktop\Rezultati\Test1\vggmsegen.png")
     with torch.no_grad():
         test_loss_sum = 0     
         test_num = 0
@@ -88,14 +88,14 @@ def test():
             test_imgs_hr = test_img_batch[1].to(DEVICE) 
             test_gen_hr = generator(test_imgs_lr)
 
-            img1 = transforms.ToPILImage()(test_gen_hr[0].cpu())  #CPU
-            img1.save(f"C:/Users/psimluser/Desktop/Rezultati/Test1/{i}gen.png")
+            img1 = transforms.ToPILImage()(test_gen_hr[1].cpu())  #CPU
+            img1.save(f"C:/Users/psimluser/Desktop/Rezultati/Test2/{i}gen.png")
 
-            img2 = transforms.ToPILImage()(test_imgs_hr[0].cpu())  #CPU
-            img2.save(f"C:/Users/psimluser/Desktop/Rezultati/Test1/{i}org_hr.png")
+            img2 = transforms.ToPILImage()(test_imgs_hr[1].cpu())  #CPU
+            img2.save(f"C:/Users/psimluser/Desktop/Rezultati/Test2/{i}org_hr.png")
 
-            img3 = transforms.ToPILImage()(test_imgs_lr[0].cpu())  #CPU
-            img3.save(f"C:/Users/psimluser/Desktop/Rezultati/Test1/{i}org_lr.png")
+            img3 = transforms.ToPILImage()(test_imgs_lr[1].cpu())  #CPU
+            img3.save(f"C:/Users/psimluser/Desktop/Rezultati/Test2/{i}org_lr.png")
 
             test_gen_features = vgg(test_gen_hr)
             test_real_features = vgg(test_imgs_hr)
